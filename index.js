@@ -15,14 +15,31 @@ const fetchRSSFeed = async () => {
     const data = await xml2js.parseStringPromise(response.data);
     const items = data.rss.channel[0].item;
 
+    // 处理数据，将每个值从数组中提取出来并转换为单独的键值对
+    const newData = items.map(item => {
+      const newItem = {};
+      Object.keys(item).forEach(key => {
+        newItem[key] = item[key][0]; // 将值从数组中提取出来
+      });
+      if (item.source && item.source[0] && item.source[0].$ && item.source[0].$.url) {
+        newItem.source = item.source[0].$.url;
+      }
+
+      // 处理guid字段
+      if (item.guid && item.guid[0] && item.guid[0]._) {
+        newItem.guid = item.guid[0]._;
+      }
+      return newItem;
+    });
+
     // 使用pubDate对数据进行去重
-    const newData = items.filter(item => {
-      const pubDate = item.pubDate[0];
-      return !cachedData.some(cachedItem => cachedItem.pubDate[0] === pubDate);
+    const uniqueData = newData.filter(item => {
+      const pubDate = item.pubDate;
+      return !cachedData.some(cachedItem => cachedItem.pubDate === pubDate);
     });
 
     // 更新缓存数据
-    cachedData = [...cachedData, ...newData];
+    cachedData = [...cachedData, ...uniqueData];
   } catch (error) {
     console.error('Error fetching RSS feed:', error);
   }
