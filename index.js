@@ -49,7 +49,9 @@ const fetchRSSFeed = async () => {
 schedule.scheduleJob('0 0 * * *', fetchRSSFeed);
 
 // 定义RESTful API端点
-app.get('/api/data', (req, res) => {
+app.get('/api/data', async (req, res) => {
+  // 确保数据拉取完成
+  await fetchRSSFeed();
   res.json(cachedData);
 });
 
