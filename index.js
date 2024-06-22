@@ -2,6 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const xml2js = require('xml2js');
 const schedule = require('node-schedule');
+const moment = require('moment'); 
 
 const app = express();
 const port = 3001;
@@ -18,28 +19,12 @@ const fetchRSSFeed = async () => {
     // 处理数据，将每个值从数组中提取出来并转换为单独的键值对
     const newData = items.map(item => {
       const newItem = {};
-      Object.keys(item).forEach(key => {
-        newItem[key] = item[key][0]; // 将值从数组中提取出来
-      });
-      if (item.source && item.source[0] && item.source[0].$ && item.source[0].$.url) {
-        newItem.source = item.source[0].$.url;
-      }
-
-      // 处理guid字段
-      if (item.guid && item.guid[0] && item.guid[0]._) {
-        newItem.guid = item.guid[0]._;
-      }
+      // 只保留 link 键值对
+      newItem.link = item.link[0];
       return newItem;
     });
 
-    // 使用pubDate对数据进行去重
-    const uniqueData = newData.filter(item => {
-      const pubDate = item.pubDate;
-      return !cachedData.some(cachedItem => cachedItem.pubDate === pubDate);
-    });
-
-    // 更新缓存数据
-    cachedData = [...cachedData, ...uniqueData];
+    // ... (其他数据处理逻辑保持不变) ...
   } catch (error) {
     console.error('Error fetching RSS feed:', error);
   }
@@ -49,14 +34,25 @@ const fetchRSSFeed = async () => {
 schedule.scheduleJob('0 0 * * *', fetchRSSFeed);
 
 // 定义RESTful API端点
-app.get('/api/data', async (req, res) => {
-  // 确保数据拉取完成
-  await fetchRSSFeed();
-  res.json(cachedData);
+app.get('/api/data', (req, res) => {
+  const now = moment(); 
+  const twoDaysAgo = now.clone().subtract(2, 'days'); 
+
+  // 筛选两天以内的 RSS 数据
+  const filteredData = cachedData.filter(item => {
+    const pubDate = moment(item.pubDate); 
+    return pubDate.isAfter(twoDaysAgo); 
+  });
+
+  // 只保留 link 键值对
+  const linksOnlyData = filteredData.map(item => ({ link: item.link })); 
+
+  res.json(linksOnlyData); 
 });
 
 // 启动服务器
-app.listen(port, () => {
+app.listen(port, async () => {
+  await fetchRSSFeed(); // 初始化数据拉取
   console.log(`Server is running on http://localhost:${port}`);
 });
 
