@@ -2,7 +2,6 @@ const express = require('express');
 const axios = require('axios');
 const xml2js = require('xml2js');
 const schedule = require('node-schedule');
-const moment = require('moment'); // 引入 moment 库用于日期处理
 
 const app = express();
 const port = 3001;
@@ -32,7 +31,15 @@ const fetchRSSFeed = async () => {
       }
       return newItem;
     });
-    // ... (其他数据处理逻辑保持不变) ...
+
+    // 使用pubDate对数据进行去重
+    const uniqueData = newData.filter(item => {
+      const pubDate = item.pubDate;
+      return !cachedData.some(cachedItem => cachedItem.pubDate === pubDate);
+    });
+
+    // 更新缓存数据
+    cachedData = [...cachedData, ...uniqueData];
   } catch (error) {
     console.error('Error fetching RSS feed:', error);
   }
@@ -42,22 +49,14 @@ const fetchRSSFeed = async () => {
 schedule.scheduleJob('0 0 * * *', fetchRSSFeed);
 
 // 定义RESTful API端点
-app.get('/api/data', (req, res) => {
-  const now = moment(); // 获取当前时间
-  const twoDaysAgo = now.clone().subtract(2, 'days'); // 计算两天前的时间
-
-  // 筛选两天以内的 RSS 数据
-  const filteredData = cachedData.filter(item => {
-    const pubDate = moment(item.pubDate); // 将 pubDate 字段转换为 moment 对象
-    return pubDate.isAfter(twoDaysAgo); // 判断 pubDate 是否在两天以内
-  });
-
-  res.json(filteredData); 
+app.get('/api/data', async (req, res) => {
+  // 确保数据拉取完成
+  await fetchRSSFeed();
+  res.json(cachedData);
 });
 
 // 启动服务器
-app.listen(port, async () => {
-  await fetchRSSFeed(); // 初始化数据拉取
+app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });
 
