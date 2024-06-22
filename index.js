@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const xml2js = require('xml2js');
 const schedule = require('node-schedule');
-const moment = require('moment'); 
+const moment = require('moment'); // 引入 moment 库用于日期处理
 
 const app = express();
 const port = 3001;
@@ -19,11 +19,19 @@ const fetchRSSFeed = async () => {
     // 处理数据，将每个值从数组中提取出来并转换为单独的键值对
     const newData = items.map(item => {
       const newItem = {};
-      // 只保留 link 键值对
-      newItem.link = item.link[0];
+      Object.keys(item).forEach(key => {
+        newItem[key] = item[key][0]; // 将值从数组中提取出来
+      });
+      if (item.source && item.source[0] && item.source[0].$ && item.source[0].$.url) {
+        newItem.source = item.source[0].$.url;
+      }
+
+      // 处理guid字段
+      if (item.guid && item.guid[0] && item.guid[0]._) {
+        newItem.guid = item.guid[0]._;
+      }
       return newItem;
     });
-
     // ... (其他数据处理逻辑保持不变) ...
   } catch (error) {
     console.error('Error fetching RSS feed:', error);
@@ -35,19 +43,16 @@ schedule.scheduleJob('0 0 * * *', fetchRSSFeed);
 
 // 定义RESTful API端点
 app.get('/api/data', (req, res) => {
-  const now = moment(); 
-  const twoDaysAgo = now.clone().subtract(2, 'days'); 
+  const now = moment(); // 获取当前时间
+  const twoDaysAgo = now.clone().subtract(2, 'days'); // 计算两天前的时间
 
   // 筛选两天以内的 RSS 数据
   const filteredData = cachedData.filter(item => {
-    const pubDate = moment(item.pubDate); 
-    return pubDate.isAfter(twoDaysAgo); 
+    const pubDate = moment(item.pubDate); // 将 pubDate 字段转换为 moment 对象
+    return pubDate.isAfter(twoDaysAgo); // 判断 pubDate 是否在两天以内
   });
 
-  // 只保留 link 键值对
-  const linksOnlyData = filteredData.map(item => ({ link: item.link })); 
-
-  res.json(linksOnlyData); 
+  res.json(filteredData); 
 });
 
 // 启动服务器
