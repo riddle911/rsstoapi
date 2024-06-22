@@ -15,22 +15,11 @@ const fetchRSSFeed = async () => {
     const data = await xml2js.parseStringPromise(response.data);
     const items = data.rss.channel[0].item;
 
-    // 处理数据，将每个值从数组中提取出来并转换为单独的键值对
-    const newData = items.map(item => {
-      const newItem = {};
-      Object.keys(item).forEach(key => {
-        newItem[key] = item[key][0]; // 将值从数组中提取出来
-      });
-      if (item.source && item.source[0] && item.source[0].$ && item.source[0].$.url) {
-        newItem.source = item.source[0].$.url;
-      }
-
-      // 处理guid字段
-      if (item.guid && item.guid[0] && item.guid[0]._) {
-        newItem.guid = item.guid[0]._;
-      }
-      return newItem;
-    });
+    // 处理数据，保留link和pubDate键值对
+    const newData = items.map(item => ({
+      link: item.link && item.link[0] && item.link[0]._ ? item.link[0]._ : null,
+      pubDate: item.pubDate && item.pubDate[0] ? item.pubDate[0] : null
+    }));
 
     // 使用pubDate对数据进行去重
     const uniqueData = newData.filter(item => {
